@@ -44,4 +44,27 @@
     <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(GameDir)\BepInEx\plugins\DiscordPresence" SkipUnchangedFiles="true" />
   </Target>
 
+  <Target Name="PackageThunderstore" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <PropertyGroup>
+      <ManifestText>$([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)\Thunderstore\manifest.json'))</ManifestText>
+      <ModName>$([System.Text.RegularExpressions.Regex]::Replace($(ManifestText), '^[\s\S]*?"name"\s*:\s*"([^"]+)"[\s\S]*$', '$1'))</ModName>
+      <ModVersion>$([System.Text.RegularExpressions.Regex]::Replace($(ManifestText), '^[\s\S]*?"version_number"\s*:\s*"([^"]+)"[\s\S]*$', '$1'))</ModVersion>
+      <PackageName>SlotsAndDaggers$(ModName)-$(ModVersion)</PackageName>
+      <DistDir>$(MSBuildProjectDirectory)\dist</DistDir>
+      <StageDir>$(DistDir)\stage</StageDir>
+      <ZipPath>$(DistDir)\$(PackageName).zip</ZipPath>
+    </PropertyGroup>
+    <RemoveDir Directories="$(StageDir)" />
+    <MakeDir Directories="$(StageDir)" />
+    <ItemGroup>
+      <PackageDll Include="$(OutDir)*.dll" />
+      <PackageMeta Include="$(MSBuildProjectDirectory)\Thunderstore\manifest.json;$(MSBuildProjectDirectory)\Thunderstore\README.md;$(MSBuildProjectDirectory)\Thunderstore\CHANGELOG.md;$(MSBuildProjectDirectory)\Thunderstore\icon.png" />
+    </ItemGroup>
+    <Copy SourceFiles="@(PackageDll);@(PackageMeta)" DestinationFolder="$(StageDir)" />
+    <Delete Files="$(ZipPath)" />
+    <ZipDirectory SourceDirectory="$(StageDir)" DestinationFile="$(ZipPath)" Overwrite="true" />
+    <RemoveDir Directories="$(StageDir)" />
+    <Message Importance="high" Text="Thunderstore package created: $(ZipPath)" />
+  </Target>
+
 </Project>

@@ -9,7 +9,7 @@ using UnityEngine;
 
 namespace DiscordPresence
 {
-    [BepInPlugin("com.king_tajin.discordpresence", "Discord Presence", "0.6.1")]
+    [BepInPlugin("com.king_tajin.discordpresence", "Discord Presence", "0.6.2")]
     public class Plugin : BaseUnityPlugin
     {
         private ConfigEntry<string> applicationId;
