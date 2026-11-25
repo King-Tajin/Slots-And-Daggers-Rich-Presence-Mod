@@ -9,7 +9,8 @@ using UnityEngine;
 
 namespace DiscordPresence
 {
-    [BepInPlugin("com.king_tajin.discordpresence", "Discord Presence", "0.6.2")]
+    [BepInPlugin("com.king_tajin.discordpresence", "Discord Presence", "0.6.3")]
+    [BepInProcess("Slots and Daggers.exe")]
     public class Plugin : BaseUnityPlugin
     {
         private ConfigEntry<string> applicationId;
@@ -21,7 +22,13 @@ namespace DiscordPresence
         private ConfigEntry<float> minUpdateInterval;
         private ConfigEntry<float> enemyLingerSeconds;
 
+        private const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+
+        private static readonly FieldInfo LocalizedNameField = typeof(Encounter).GetField("displayNameLocalized", Flags);
+        private static readonly MethodInfo LocalizedStringMethod = LocalizedNameField == null ? null : LocalizedNameField.FieldType.GetMethod("GetLocalizedString", Type.EmptyTypes);
+
         private readonly HashSet<string> warnedKeys = new HashSet<string>();
+        private readonly HashSet<string> loggedErrors = new HashSet<string>();
         private DiscordRpcClient client;
         private Timestamps startTime;
         private float nextPoll;
@@ -33,18 +40,17 @@ namespace DiscordPresence
         private string lastEnemy;
         private string lastLoggedNameIssue;
         private bool runActive;
-        private bool errorLogged;
 
         private void Awake()
         {
-            applicationId = Config.Bind("General", "ApplicationId", "1573513660431859874", "Discord application ID from the Developer Portal");
-            largeImageKey = Config.Bind("General", "LargeImageKey", "logo", "Art asset key used for the logo, shown when no enemy image applies");
+            applicationId = Config.Bind("General", "ApplicationId", "1573513660431859874", "Discord application ID from the Developer Portal. Changing this requires a game restart");
+            largeImageKey = Config.Bind("General", "LargeImageKey", "logo", "Art asset key used for the logo, shown when no enemy image applies. Must exist in the Discord application art assets");
             showEnemyImage = Config.Bind("Display", "ShowEnemyImage", true, "Show the art of the enemy you are fighting");
             showHealth = Config.Bind("Display", "ShowHealth", true, "Show player health as a percentage in the presence");
             showScore = Config.Bind("Display", "ShowScore", true, "Show the current score in the presence");
-            pollInterval = Config.Bind("Display", "PollIntervalSeconds", 2f, "How often the game state is checked");
-            enemyLingerSeconds = Config.Bind("Display", "EnemyLingerSeconds", 8f, "How long the last enemy stays shown after a fight ends, before switching to Between fights");
-            minUpdateInterval = Config.Bind("Display", "MinUpdateIntervalSeconds", 5f, "Minimum time between presence updates, to stay under Discord rate limits");
+            pollInterval = Config.Bind("Display", "PollIntervalSeconds", 2f, new ConfigDescription("How often the game state is checked", new AcceptableValueRange<float>(0.5f, 60f)));
+            enemyLingerSeconds = Config.Bind("Display", "EnemyLingerSeconds", 8f, new ConfigDescription("How long the last enemy stays shown after a fight ends, before switching to Between fights", new AcceptableValueRange<float>(0f, 120f)));
+            minUpdateInterval = Config.Bind("Display", "MinUpdateIntervalSeconds", 5f, new ConfigDescription("Minimum time between presence updates, to stay under Discord rate limits", new AcceptableValueRange<float>(0f, 60f)));
 
             if (string.IsNullOrWhiteSpace(applicationId.Value) || applicationId.Value == "0")
             {
@@ -75,9 +81,8 @@ namespace DiscordPresence
             }
             catch (Exception e)
             {
-                if (!errorLogged)
+                if (loggedErrors.Add(e.ToString()))
                 {
-                    errorLogged = true;
                     Logger.LogError(e);
                 }
             }
@@ -211,17 +216,15 @@ namespace DiscordPresence
 
         private static string LocalizedName(Encounter encounter)
         {
+            if (LocalizedNameField == null || LocalizedStringMethod == null)
+            {
+                return null;
+            }
+
             try
             {
-                FieldInfo field = typeof(Encounter).GetField("displayNameLocalized", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-                object localized = field == null ? null : field.GetValue(encounter);
-                if (localized == null)
-                {
-                    return null;
-                }
-
-                MethodInfo method = localized.GetType().GetMethod("GetLocalizedString", Type.EmptyTypes);
-                return method == null ? null : method.Invoke(localized, null) as string;
+                object localized = LocalizedNameField.GetValue(encounter);
+                return localized == null ? null : LocalizedStringMethod.Invoke(localized, null) as string;
             }
             catch
             {

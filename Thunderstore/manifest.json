@@ -1,6 +1,6 @@
 {
   "name": "DiscordPresence",
-  "version_number": "0.6.2",
+  "version_number": "0.6.3",
   "website_url": "https://github.com/King-Tajin/Slots-And-Daggers-Rich-Presence-Mod",
   "description": "Discord Rich Presence for Slots & Daggers. Shows the enemy you are fighting, your level, health, score and play time.",
   "dependencies": [
